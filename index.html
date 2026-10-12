@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🗺️ 누가 가장 멀리서 왔을까?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 단순 구성: 가운데 큰 검색창 → 아래 거리순 목록. 럭키드로우와 같은 남색·네온 톤 */
+:root{
+  color-scheme: dark;
+  --bg:#12172b;
+  --glass:rgba(255,255,255,.06);
+  --glass-hi:rgba(255,255,255,.10);
+  --edge:rgba(255,255,255,.14);
+  --text:#eef1ff;
+  --muted:#d6dcf7;
+  --cyan:#3ff0ff;
+  --pink:#ff4fd8;
+  --gold:#ffd166;
+  --red:#ff6b81;
+  --display:"Do Hyeon","IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;min-height:100%}
+/* 배경: 깊은 밤하늘(위→아래 남색→보라) + 오로라 빛 + 별 + 여러 곳에서 한 점(행사장)으로 모이는 점선 항로 */
+body{background:linear-gradient(180deg,#0a0f26 0%,#11163a 55%,#1a1442 100%) fixed;color:var(--text);font:16px/1.55 var(--body);overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(60vmax 28vmax at 20% -6%,rgba(63,240,255,.13),transparent 70%),
+             radial-gradient(50vmax 26vmax at 85% 0%,rgba(124,92,255,.16),transparent 70%),
+             radial-gradient(70vmax 30vmax at 50% 110%,rgba(255,79,216,.10),transparent 70%)}
+.sky{position:fixed;inset:0;pointer-events:none;z-index:0;width:100%;height:100%}
+.sky .star{fill:#fff}
+.sky .tw{animation:tw 4s ease-in-out infinite}
+.sky .route{fill:none;stroke:url(#rt);stroke-width:1.4;stroke-dasharray:2 9;stroke-linecap:round;animation:flow 6s linear infinite}
+@keyframes tw{50%{opacity:.25}}
+@keyframes flow{to{stroke-dashoffset:-88}}
+@media (prefers-reduced-motion:reduce){.sky .tw,.sky .route{animation:none}}
+.wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:14vh 16px 40px;display:flex;flex-direction:column;gap:28px}
+.glass{background:#1a2140;border:1px solid rgba(255,255,255,.18);border-radius:20px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+button{font:700 15px/1 var(--body);color:var(--text);background:var(--glass-hi);border:1px solid var(--edge);border-radius:12px;padding:11px 16px;cursor:pointer;white-space:nowrap}
+button:hover{background:rgba(255,255,255,.16)}
+button:disabled{opacity:.45;cursor:not-allowed}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+/* 제목 + 검색 */
+.hero{text-align:center;display:flex;flex-direction:column;gap:26px;align-items:center;margin-bottom:6vh}
+h1{font:400 clamp(40px,6vw,76px)/1.1 var(--display);margin:0;text-wrap:balance;color:#fff}
+.venue{margin:-8px 0 4vh;color:var(--muted);font-size:19px}
+.venue b{color:var(--gold)}
+.search{width:100%;display:flex;align-items:stretch;gap:0;padding:12px;border-radius:999px;background:#0b1022;border:3px solid var(--cyan);box-shadow:0 0 0 6px rgba(63,240,255,.08),0 0 40px rgba(63,240,255,.28),inset 0 0 18px rgba(63,240,255,.10);animation:glow 3.2s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 0 8px rgba(63,240,255,.12),0 0 56px rgba(63,240,255,.42),inset 0 0 22px rgba(63,240,255,.14)}}
+@media (prefers-reduced-motion:reduce){.search{animation:none}}
+.search:focus-within{border-color:var(--cyan)}
+.search input{background:transparent;border:0;color:var(--text);font:500 clamp(22px,2.8vw,34px)/1.3 var(--body);padding:24px 28px;min-width:0}
+.search input:focus-visible{outline:none}
+.search input::placeholder{color:#b9c1e6}
+#who{flex:0 0 30%;border-right:1px solid var(--edge)}
+#addr{flex:1}
+.search .go{border-radius:999px;border:0;padding:0 44px;font-size:clamp(20px,2.4vw,28px);background:linear-gradient(135deg,#29c6e0,#7c5cff)}
+@media (max-width:640px){
+  .search{flex-direction:column;border-radius:22px}
+  #who{flex:auto;border-right:0;border-bottom:1px solid var(--edge)}
+  .search .go{padding:14px;border-radius:14px;margin-top:6px}
+}
+.sub{display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:-6px}
+.link{background:none;border:0;color:var(--muted);padding:4px;font-weight:700;font-size:16px;text-decoration:underline;text-underline-offset:3px}
+.link:hover{background:none;color:var(--text)}
+/* 카카오맵 연결 표시: 노란 점이 은은하게 숨쉼 (연결 중=회색, 안 됨=빨강) */
+.via{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;font-size:14.5px;font-weight:500;color:var(--muted);background:rgba(254,229,0,.06);border:1px solid rgba(254,229,0,.22)}
+.via i{width:9px;height:9px;border-radius:50%;background:#8a90a8;flex:none}
+.via.ok i{background:#fee500;box-shadow:0 0 8px rgba(254,229,0,.8);animation:dot 2.6s ease-in-out infinite}
+.via.ok b{color:#fee500;font-weight:700}
+.via.err{background:rgba(255,107,129,.08);border-color:rgba(255,107,129,.35);color:var(--red)}
+.via.err i{background:var(--red)}
+@keyframes dot{50%{box-shadow:0 0 14px rgba(254,229,0,1);opacity:.75}}
+@media (prefers-reduced-motion:reduce){.via.ok i{animation:none}}
+.msg{margin:0;min-height:1.4em;font-size:19px;font-weight:700}
+.msg.err{color:var(--red)} .msg.ok{color:var(--cyan)}
+
+/* 거리순 목록 */
+/* 거리순: 바깥 상자 없이 카드만. 1·2·3등은 금·은·동 배지, 거리 막대로 길이 비교 */
+.rank{padding:0}
+.bar{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:0 4px 16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.12)}
+h2{font:400 34px/1.1 var(--display);margin:0;color:#fff}
+h2 small{font:700 17px var(--body);color:var(--muted);margin-left:8px}
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tools label{font-size:17px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:6px}
+.tools input[type=number]{width:62px;background:#0b1022;color:#fff;border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:8px;font:700 16px var(--body);text-align:center}
+.btn-gold{background:linear-gradient(135deg,#ffd166,#ff9f43);color:#2a1a00;border:0;border-radius:999px;padding:11px 20px;box-shadow:0 4px 18px rgba(255,170,60,.3)}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.item{position:relative;display:grid;grid-template-columns:60px minmax(0,1fr) auto 32px;gap:18px;align-items:center;padding:16px 18px 16px 16px;border-radius:22px;
+  background:linear-gradient(100deg,rgba(255,255,255,.075),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.10);box-shadow:0 6px 24px rgba(0,0,0,.25);transition:transform .15s}
+.item:hover{transform:translateY(-2px)}
+.item.win{background:linear-gradient(100deg,rgba(255,209,102,.16),rgba(255,209,102,.03) 60%);border-color:rgba(255,209,102,.45);box-shadow:0 0 0 1px rgba(255,209,102,.10),0 8px 30px rgba(255,180,60,.14)}
+.no{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font:400 26px/1 var(--display);color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16)}
+.win .no{color:#3a2600;border:0;background:linear-gradient(135deg,#fff0b3,#ffc94d);box-shadow:0 0 16px rgba(255,209,102,.45)}
+.r2 .no{background:linear-gradient(135deg,#ffffff,#c4cbe0);box-shadow:0 0 14px rgba(220,228,255,.35);color:#252b40}
+.r3 .no{background:linear-gradient(135deg,#ffd2a8,#d98a4e);box-shadow:0 0 14px rgba(230,150,90,.35);color:#3a1d05}
+.who{min-width:0}
+.who b{display:block;font-size:22px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who span{font-size:16px;margin-top:2px;color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meter{height:6px;border-radius:999px;background:rgba(255,255,255,.08);margin-top:10px;overflow:hidden}
+.meter i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#29c6e0,#3ff0ff)}
+.win .meter i{background:linear-gradient(90deg,#ff9f43,#ffd166)}
+.km{font:400 40px/1 var(--display);color:var(--cyan);font-variant-numeric:tabular-nums;text-align:right}
+.km small{font-size:.5em;margin-left:3px;opacity:.85}
+.win .km{color:var(--gold)}
+.del{background:none;border:0;color:rgba(255,255,255,.35);padding:6px;font-size:20px;border-radius:50%}
+.del:hover{color:var(--red);background:rgba(255,107,129,.12)}
+.empty{color:var(--muted);text-align:center;padding:34px;font-size:18px;border:1px dashed rgba(255,255,255,.18);border-radius:22px}
+.foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:16px 4px 0;font-size:15px;color:var(--muted)}
+@media (max-width:640px){.item{grid-template-columns:48px minmax(0,1fr) auto;gap:12px}.no{width:44px;height:44px}.del{grid-column:3;grid-row:1;position:absolute;top:4px;right:4px}.km{font-size:30px}}
+
+/* 접어 두는 것들 */
+.mapbox{position:relative;height:60vh;min-height:380px;overflow:hidden}
+#map{position:absolute;inset:0}
+.more{padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+.more textarea{width:100%;min-height:110px;background:rgba(10,14,30,.45);color:var(--text);border:1px solid var(--edge);border-radius:12px;padding:10px 12px;font:15px/1.5 var(--body);resize:vertical}
+.more label{font-size:16px;color:var(--muted)}
+.hint{font-size:15px;color:var(--muted);margin:0}
+
+/* 지도 위 표시 */
+.pin{transform:translateY(-6px);display:flex;align-items:center;gap:4px;padding:4px 9px;border-radius:999px;background:#1b2140;border:2px solid var(--cyan);color:#fff;font:700 12px/1 var(--body);white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+.pin.win{border-color:var(--gold);background:#3a2c08}
+.pin i{font-style:normal;font:400 14px/1 var(--display);color:var(--cyan)}
+.pin.win i{color:var(--gold)}
+.pin-venue{display:flex;flex-direction:column;align-items:center;transform:translateY(-10px)}
+.pin-venue div{padding:6px 11px;border-radius:10px;background:linear-gradient(135deg,#ff4fd8,#7c5cff);color:#fff;font:700 13px/1 var(--body);white-space:nowrap;box-shadow:0 0 18px rgba(255,79,216,.7)}
+.pin-venue span{font-size:22px;line-height:1;margin-top:2px;filter:drop-shadow(0 0 6px #ff4fd8)}
+
+/* 발표 화면 */
+.show{position:fixed;inset:0;z-index:50;background:rgba(8,10,22,.97);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:40px 16px;text-align:center;cursor:pointer}
+.show .tag{font:400 clamp(26px,3vw,40px)/1 var(--display);color:var(--muted)}
+.show .place{font:400 clamp(70px,11vw,150px)/1 var(--display);color:var(--gold)}
+.show .name{font:400 clamp(44px,6vw,86px)/1.1 var(--display);overflow-wrap:anywhere}
+.show .from{font-size:clamp(18px,2vw,26px);color:var(--muted)}
+.show .dist{font:400 clamp(56px,8vw,120px)/1 var(--display);color:var(--cyan);font-variant-numeric:tabular-nums}
+.show .dist small{font-size:.45em;margin-left:6px}
+.show .next{font-size:20px;color:var(--muted);margin-top:16px}
+.pop{animation:pop .6s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.pop{animation:none}}
+</style>
+</head>
+<body>
+<svg class="sky" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="rt" x1="0" x2="1"><stop offset="0" stop-color="#3ff0ff" stop-opacity="0"/><stop offset="1" stop-color="#3ff0ff" stop-opacity=".35"/></linearGradient><radialGradient id="dest"><stop offset="0" stop-color="#ff4fd8" stop-opacity=".55"/><stop offset="1" stop-color="#ff4fd8" stop-opacity="0"/></radialGradient></defs><circle class="star tw" cx="785" cy="505" r="0.43" opacity="0.32" style="animation-delay:1.8s"/><circle class="star" cx="810" cy="71" r="1.27" opacity="0.49"/><circle class="star" cx="657" cy="256" r="1.16" opacity="0.53"/><circle class="star" cx="123" cy="449" r="0.56" opacity="0.54"/><circle class="star tw" cx="253" cy="504" r="0.84" opacity="0.29" style="animation-delay:0.2s"/><circle class="star" cx="1503" cy="873" r="0.43" opacity="0.42"/><circle class="star" cx="1529" cy="170" r="0.76" opacity="0.48"/><circle class="star" cx="1075" cy="253" r="0.49" opacity="0.69"/><circle class="star tw" cx="713" cy="209" r="0.90" opacity="0.37" style="animation-delay:0.6s"/><circle class="star" cx="1237" cy="317" r="0.69" opacity="0.24"/><circle class="star" cx="1482" cy="215" r="1.27" opacity="0.44"/><circle class="star" cx="378" cy="543" r="0.74" opacity="0.58"/><circle class="star tw" cx="1045" cy="122" r="0.55" opacity="0.43" style="animation-delay:0.4s"/><circle class="star" cx="76" cy="371" r="1.05" opacity="0.52"/><circle class="star" cx="1528" cy="292" r="0.78" opacity="0.45"/><circle class="star" cx="702" cy="755" r="0.80" opacity="0.42"/><circle class="star tw" cx="422" cy="213" r="1.12" opacity="0.27" style="animation-delay:1.1s"/><circle class="star" cx="1227" cy="773" r="1.37" opacity="0.66"/><circle class="star" cx="1377" cy="673" r="1.00" opacity="0.48"/><circle class="star" cx="39" cy="291" r="0.69" opacity="0.31"/><circle class="star tw" cx="630" cy="617" r="1.11" opacity="0.33" style="animation-delay:3.8s"/><circle class="star" cx="11" cy="324" r="0.94" opacity="0.42"/><circle class="star" cx="143" cy="892" r="0.80" opacity="0.64"/><circle class="star" cx="940" cy="422" r="0.44" opacity="0.60"/><circle class="star tw" cx="1434" cy="238" r="0.33" opacity="0.28" style="animation-delay:2.8s"/><circle class="star" cx="1116" cy="594" r="1.26" opacity="0.31"/><circle class="star" cx="1329" cy="152" r="0.34" opacity="0.24"/><circle class="star" cx="34" cy="483" r="1.21" opacity="0.62"/><circle class="star tw" cx="233" cy="445" r="0.36" opacity="0.34" style="animation-delay:2.0s"/><circle class="star" cx="103" cy="320" r="0.55" opacity="0.35"/><circle class="star" cx="1265" cy="123" r="0.48" opacity="0.20"/><circle class="star" cx="998" cy="78" r="0.74" opacity="0.25"/><circle class="star tw" cx="765" cy="373" r="0.31" opacity="0.58" style="animation-delay:1.8s"/><circle class="star" cx="1182" cy="304" r="1.32" opacity="0.56"/><circle class="star" cx="1023" cy="241" r="0.70" opacity="0.24"/><circle class="star" cx="1410" cy="75" r="0.38" opacity="0.29"/><circle class="star tw" cx="486" cy="27" r="0.96" opacity="0.42" style="animation-delay:1.5s"/><circle class="star" cx="864" cy="815" r="0.88" opacity="0.41"/><circle class="star" cx="192" cy="809" r="1.03" opacity="0.45"/><circle class="star" cx="1450" cy="610" r="0.80" opacity="0.68"/><circle class="star tw" cx="1418" cy="374" r="0.85" opacity="0.55" style="animation-delay:3.1s"/><circle class="star" cx="1464" cy="491" r="1.39" opacity="0.52"/><circle class="star" cx="1327" cy="396" r="0.38" opacity="0.69"/><circle class="star" cx="888" cy="587" r="0.73" opacity="0.58"/><circle class="star tw" cx="1252" cy="452" r="0.79" opacity="0.64" style="animation-delay:2.9s"/><circle class="star" cx="83" cy="332" r="0.81" opacity="0.70"/><circle class="star" cx="1054" cy="139" r="1.04" opacity="0.28"/><circle class="star" cx="320" cy="475" r="0.65" opacity="0.21"/><circle class="star tw" cx="1535" cy="463" r="0.34" opacity="0.39" style="animation-delay:0.7s"/><circle class="star" cx="1052" cy="210" r="1.11" opacity="0.35"/><circle class="star" cx="1452" cy="539" r="0.73" opacity="0.62"/><circle class="star" cx="285" cy="310" r="0.76" opacity="0.65"/><circle class="star tw" cx="909" cy="77" r="0.48" opacity="0.44" style="animation-delay:1.0s"/><circle class="star" cx="643" cy="459" r="0.66" opacity="0.21"/><circle class="star" cx="97" cy="667" r="0.80" opacity="0.48"/><circle class="star" cx="1440" cy="94" r="0.75" opacity="0.31"/><circle class="star tw" cx="624" cy="29" r="0.44" opacity="0.56" style="animation-delay:3.4s"/><circle class="star" cx="46" cy="483" r="0.61" opacity="0.37"/><circle class="star" cx="371" cy="659" r="0.84" opacity="0.31"/><circle class="star" cx="1005" cy="798" r="1.34" opacity="0.39"/><circle class="star tw" cx="1514" cy="722" r="0.75" opacity="0.24" style="animation-delay:0.8s"/><circle class="star" cx="214" cy="652" r="0.95" opacity="0.68"/><circle class="star" cx="442" cy="317" r="0.65" opacity="0.28"/><circle class="star" cx="1472" cy="557" r="1.17" opacity="0.55"/><circle class="star tw" cx="442" cy="527" r="0.45" opacity="0.55" style="animation-delay:3.8s"/><circle class="star" cx="975" cy="300" r="0.67" opacity="0.48"/><circle class="star" cx="907" cy="111" r="0.73" opacity="0.61"/><circle class="star" cx="1189" cy="475" r="0.88" opacity="0.51"/><circle class="star tw" cx="615" cy="78" r="0.46" opacity="0.39" style="animation-delay:3.7s"/><circle class="star" cx="1206" cy="832" r="0.79" opacity="0.63"/><circle class="star" cx="706" cy="78" r="1.28" opacity="0.37"/><circle class="star" cx="397" cy="219" r="0.36" opacity="0.38"/><circle class="star tw" cx="555" cy="880" r="1.20" opacity="0.51" style="animation-delay:2.2s"/><circle class="star" cx="84" cy="416" r="0.47" opacity="0.44"/><circle class="star" cx="494" cy="218" r="0.87" opacity="0.48"/><circle class="star" cx="345" cy="528" r="1.03" opacity="0.45"/><circle class="star tw" cx="149" cy="0" r="0.84" opacity="0.43" style="animation-delay:0.0s"/><circle class="star" cx="991" cy="89" r="0.40" opacity="0.35"/><circle class="star" cx="692" cy="603" r="1.36" opacity="0.64"/><circle class="star" cx="267" cy="3" r="1.23" opacity="0.70"/><circle class="star tw" cx="1357" cy="676" r="0.93" opacity="0.66" style="animation-delay:0.1s"/><circle class="star" cx="496" cy="554" r="0.37" opacity="0.52"/><circle class="star" cx="593" cy="269" r="1.34" opacity="0.50"/><circle class="star" cx="229" cy="613" r="1.08" opacity="0.21"/><circle class="star tw" cx="393" cy="110" r="0.66" opacity="0.23" style="animation-delay:1.0s"/><circle class="star" cx="795" cy="479" r="0.88" opacity="0.67"/><circle class="star" cx="143" cy="317" r="0.39" opacity="0.27"/><circle class="star" cx="235" cy="296" r="0.42" opacity="0.36"/><circle class="star tw" cx="163" cy="371" r="0.64" opacity="0.61" style="animation-delay:1.8s"/><circle class="star" cx="827" cy="802" r="1.04" opacity="0.38"/><path class="route" d="M-20 120 Q 890 180 1480 760" style="animation-delay:-0s"/><path class="route" d="M-20 520 Q 570 380 1480 760" style="animation-delay:-1.3s"/><path class="route" d="M300 -20 Q 1050 110 1480 760" style="animation-delay:-2.6s"/><path class="route" d="M900 -20 Q 1030 110 1480 760" style="animation-delay:-3.9000000000000004s"/><path class="route" d="M-20 860 Q 890 550 1480 760" style="animation-delay:-5.2s"/><circle cx="1480" cy="760" r="60" fill="url(#dest)"/><circle cx="1480" cy="760" r="3.5" fill="#ffd1f4" opacity=".8"/></svg>
+<div class="wrap">
+  <section class="hero">
+    <h1>🗺️ 누가 가장 멀리서 왔을까?</h1>
+    <p class="venue">기준: <b>호메르스호텔</b> · 부산 수영구 광안해변로 217</p>
+    <div class="search">
+      <input type="text" id="who" placeholder="이름 (기관)" autocomplete="off" aria-label="이름 (기관)">
+      <input type="text" id="addr" placeholder="어디서 오셨나요? 주소나 장소 이름" autocomplete="off" aria-label="출발한 곳 주소">
+      <button type="button" class="go" id="addBtn">검색</button>
+    </div>
+    <div class="sub">
+      <span class="via" id="via"><i></i><span id="viaText">카카오맵 연결 중…</span></span>
+      <button type="button" class="link" id="findBtn">주소를 모르면 → 주소 찾기</button>
+    </div>
+    <p class="msg" id="msg" role="status"></p>
+  </section>
+
+  <section class="rank">
+    <div class="bar">
+      <h2>거리순 <small id="count"></small></h2>
+      <div class="tools">
+        <label>상품 <input type="number" id="topN" min="1" max="50" value="3"> 명</label>
+        <button type="button" class="btn-gold" id="showBtn">🏆 순위 발표</button>
+      </div>
+    </div>
+    <ol class="list" id="list"></ol>
+    <div class="foot">
+      <span>카카오맵 좌표 기준 직선거리 · 동점이면 먼저 입력한 사람이 앞</span>
+      <span>
+        <button type="button" class="link" id="mapBtn">🗺️ 지도로 보기</button>
+        <button type="button" class="link" id="moreBtn">더보기</button>
+      </span>
+    </div>
+  </section>
+
+  <section class="glass mapbox" id="mapbox" hidden><div id="map"></div></section>
+
+  <section class="glass more" id="more" hidden>
+    <label for="bulk">여러 명 한꺼번에 넣기 (한 줄에 한 명 · 이름, 주소)</label>
+    <textarea id="bulk" placeholder="홍길동 (OO복지관), 서울 종로구 세종대로 175&#10;김철수, 제주시청"></textarea>
+    <div><button type="button" id="bulkBtn">한꺼번에 추가</button></div>
+    <label><input type="checkbox" id="mask" checked> 화면에 주소는 시·구·동까지만 표시</label>
+    <div><button type="button" id="resetBtn">명단 전체 지우기</button></div>
+  </section>
+</div>
+
+<div class="show" id="show" hidden tabindex="-1" aria-live="polite"></div>
+
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<script>
+(function(){
+'use strict';
+/* ===== 기준 장소 ===== */
+const VENUE = {name:'호메르스호텔', addr:'부산 수영구 광안해변로 217', lat:35.1563, lng:129.1215}; // 좌표는 카카오가 주소로 다시 계산
+const STORE = 'farthest-v1';
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(k); return v==null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+let people = store.get(STORE+':people', []);
+let topN = store.get(STORE+':topN', 3);
+let mask = store.get(STORE+':mask', true);
+const qs = new URLSearchParams(location.search);
+const DEFAULT_KEY = '55c4cae1ee02642e82bddea7fa886d77'; // 카카오 JavaScript 키(도메인 제한: little-hamjji.github.io, localhost:8765)
+const KEY = qs.get('key') || DEFAULT_KEY;
+
+/* ===== 거리 계산 (하버사인, km) ===== */
+function km(a, b){
+  const R = 6371, r = x => x*Math.PI/180;
+  const dLat = r(b.lat-a.lat), dLng = r(b.lng-a.lng);
+  const h = Math.sin(dLat/2)**2 + Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function ranked(){
+  return people.map(p => ({...p, d: km(VENUE, p)}))
+    .sort((a,b) => b.d - a.d || a.t - b.t);
+}
+const fmt = d => d >= 100 ? d.toFixed(0) : d.toFixed(1);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const shown = p => mask ? (p.region || p.addr) : p.addr;
+
+/* ===== 카카오 (주소 검색은 바로, 지도는 「지도로 보기」 눌렀을 때) ===== */
+let map = null, geocoder = null, places = null, overlays = [];
+function loadKakao(){
+  const s = document.createElement('script');
+  s.src = 'https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&libraries=services&appkey=' + encodeURIComponent(KEY);
+  s.onload = () => kakao.maps.load(() => {
+    geocoder = new kakao.maps.services.Geocoder();
+    places = new kakao.maps.services.Places();
+    geocode(VENUE.addr).then(g => { VENUE.lat = g.lat; VENUE.lng = g.lng; via('ok', '<b>카카오맵</b> 위치 검색 연결됨'); render(); })
+      .catch(e => { via('err', '카카오맵 연결 안 됨'); say(e.message, 'err'); });
+  });
+  s.onerror = () => { via('err', '카카오맵 연결 안 됨'); say('카카오 지도를 불러오지 못했습니다. 인터넷 연결과, 이 화면 주소가 카카오 앱 JavaScript SDK 도메인에 등록됐는지 확인해 주세요. (파일을 더블클릭해 연 file:// 상태에선 동작하지 않습니다)', 'err'); };
+  document.head.appendChild(s);
+}
+
+function geocode(q){
+  return new Promise((ok, no) => {
+    if(!geocoder) return no(new Error('카카오 연결 중입니다. 잠시 후 다시 눌러 주세요.'));
+    const OK = kakao.maps.services.Status.OK, ERR = kakao.maps.services.Status.ERROR;
+    const denied = () => no(new Error(location.protocol === 'file:'
+      ? '파일을 더블클릭해서 열면 카카오가 막습니다. 폴더의 「열기.bat」으로 열거나 인터넷 주소로 열어 주세요.'
+      : '카카오 연결이 거부됐습니다. 이 주소(' + location.origin + ')가 카카오 앱 JavaScript SDK 도메인에 등록됐는지 확인해 주세요.'));
+    geocoder.addressSearch(q, (res, st) => {
+      if(st === ERR) return denied();
+      if(st === OK && res.length){
+        const r = res[0], a = r.road_address || r.address || {};
+        return ok({lat:+r.y, lng:+r.x, addr:r.address_name,
+          region:[a.region_1depth_name, a.region_2depth_name, a.region_3depth_name].filter(Boolean).join(' ')});
+      }
+      places.keywordSearch(q, (res2, st2) => {
+        if(st2 === ERR) return denied();
+        if(st2 === OK && res2.length){
+          const r = res2[0], parts = (r.address_name||'').split(' ');
+          return ok({lat:+r.y, lng:+r.x, addr:r.place_name + ' (' + r.address_name + ')', region:parts.slice(0,3).join(' ')});
+        }
+        no(new Error('「' + q + '」 위치를 찾지 못했습니다. 주소를 조금 더 정확히 입력해 주세요.'));
+      });
+    });
+  });
+}
+
+function drawMap(list){
+  if(!map) return;
+  overlays.forEach(o => o.setMap(null)); overlays = [];
+  const vpos = new kakao.maps.LatLng(VENUE.lat, VENUE.lng);
+  const bounds = new kakao.maps.LatLngBounds(); bounds.extend(vpos);
+  list.forEach((p, i) => {
+    const pos = new kakao.maps.LatLng(p.lat, p.lng), win = i < topN;
+    bounds.extend(pos);
+    overlays.push(new kakao.maps.Polyline({map, path:[pos, vpos], strokeWeight: win ? 4 : 2,
+      strokeColor: win ? '#ffd166' : '#3ff0ff', strokeOpacity: win ? .9 : .45, strokeStyle: win ? 'solid' : 'shortdash'}));
+    const el = document.createElement('div');
+    el.className = 'pin' + (win ? ' win' : '');
+    el.innerHTML = '<i>' + (i+1) + '</i>' + esc(p.name);
+    overlays.push(new kakao.maps.CustomOverlay({map, position:pos, content:el, yAnchor:1, zIndex: win ? 3 : 2}));
+  });
+  const v = document.createElement('div'); v.className = 'pin-venue';
+  v.innerHTML = '<div>성과공유회 · ' + esc(VENUE.name) + '</div><span>★</span>';
+  overlays.push(new kakao.maps.CustomOverlay({map, position:vpos, content:v, yAnchor:1, zIndex:5}));
+  if(list.length) map.setBounds(bounds, 60, 60, 60, 60);
+}
+
+$('mapBtn').onclick = () => {
+  const box = $('mapbox');
+  box.hidden = !box.hidden;
+  $('mapBtn').textContent = box.hidden ? '🗺️ 지도로 보기' : '🗺️ 지도 접기';
+  if(box.hidden) return;
+  if(!window.kakao || !kakao.maps || !kakao.maps.Map){ box.hidden = true; return say('카카오 지도가 아직 연결되지 않았습니다.', 'err'); }
+  if(!map){
+    map = new kakao.maps.Map($('map'), {center:new kakao.maps.LatLng(VENUE.lat, VENUE.lng), level:12});
+    map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
+  }
+  map.relayout();
+  drawMap(ranked());
+  box.scrollIntoView({behavior:'smooth', block:'start'});
+};
+
+/* ===== 화면 ===== */
+function render(){
+  const list = ranked();
+  $('count').textContent = list.length ? list.length + '명' : '';
+  const max = list.length ? list[0].d || 1 : 1;
+  $('list').innerHTML = list.length ? list.map((p, i) =>
+    '<li class="item' + (i < topN ? ' win' + (i === 1 ? ' r2' : i === 2 ? ' r3' : '') : '') + '">' +
+      '<span class="no">' + (i+1) + '</span>' +
+      '<span class="who"><b>' + esc(p.name) + '</b><span>' + esc(shown(p)) + '</span><span class="meter"><i style="width:' + Math.max(2, p.d / max * 100).toFixed(1) + '%"></i></span></span>' +
+      '<span class="km">' + fmt(p.d) + '<small>km</small></span>' +
+      '<button class="del" type="button" aria-label="' + esc(p.name) + ' 삭제" data-del="' + p.id + '">×</button>' +
+    '</li>').join('')
+    : '<li class="empty">위 검색창에 이름과 주소를 넣으면 여기에 먼 순서대로 쌓입니다.</li>';
+  $('showBtn').disabled = !list.length;
+  drawMap(list);
+}
+function save(){ store.set(STORE+':people', people); render(); }
+function via(cls, html){ $('via').className = 'via ' + cls; $('viaText').innerHTML = html; }
+function say(t, cls){ $('msg').textContent = t; $('msg').className = 'msg ' + (cls||''); }
+
+async function addOne(name, q){
+  const g = await geocode(q);
+  people.push({id: Date.now().toString(36) + Math.random().toString(36).slice(2,6), t: Date.now(),
+    name, addr: g.addr, region: g.region, lat: g.lat, lng: g.lng});
+  return g;
+}
+
+$('addBtn').onclick = async () => {
+  const name = $('who').value.trim(), q = $('addr').value.trim();
+  if(!q){ $('addr').focus(); return say('주소나 장소 이름을 넣어 주세요.', 'err'); }
+  if(!name){ $('who').focus(); return say('이름을 넣어 주세요.', 'err'); }
+  $('addBtn').disabled = true;
+  try{
+    const g = await addOne(name, q);
+    save();
+    const rank = ranked().findIndex(p => p.name === name && p.lat === g.lat) + 1;
+    say(name + ' · ' + fmt(km(VENUE, g)) + 'km → 현재 ' + rank + '위', 'ok');
+    $('who').value = ''; $('addr').value = ''; $('who').focus();
+  }catch(e){ say(e.message, 'err'); }
+  $('addBtn').disabled = false;
+};
+$('addr').addEventListener('keydown', e => { if(e.key === 'Enter') $('addBtn').click(); });
+$('who').addEventListener('keydown', e => { if(e.key === 'Enter') $('addr').focus(); });
+
+$('findBtn').onclick = () => {
+  if(!window.daum || !daum.Postcode) return say('주소 찾기 창을 불러오지 못했습니다. 주소를 직접 입력해 주세요.', 'err');
+  new daum.Postcode({oncomplete: d => { $('addr').value = d.roadAddress || d.jibunAddress || d.address; $('addBtn').focus(); }}).open();
+};
+
+$('moreBtn').onclick = () => { $('more').hidden = !$('more').hidden; if(!$('more').hidden) $('more').scrollIntoView({behavior:'smooth', block:'start'}); };
+
+$('bulkBtn').onclick = async () => {
+  const lines = $('bulk').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if(!lines.length) return;
+  $('bulkBtn').disabled = true;
+  const failed = [];
+  let ok = 0;
+  for(const line of lines){
+    const m = line.match(/^([^,\t]+)[,\t]\s*(.+)$/);
+    if(!m){ failed.push(line); continue; }
+    try{ await addOne(m[1].trim(), m[2].trim()); ok++; }catch(e){ failed.push(line); }
+  }
+  save();
+  $('bulk').value = failed.join('\n');
+  say(ok + '명 추가' + (failed.length ? ', ' + failed.length + '줄은 위치를 못 찾아 남겨 뒀습니다.' : '했습니다.'), failed.length ? 'err' : 'ok');
+  $('bulkBtn').disabled = false;
+};
+
+$('list').onclick = e => {
+  const del = e.target.closest('[data-del]');
+  if(del){ people = people.filter(p => p.id !== del.dataset.del); save(); }
+};
+
+$('topN').value = topN;
+$('topN').oninput = () => { const n = parseInt($('topN').value, 10); if(n > 0){ topN = n; store.set(STORE+':topN', n); render(); } };
+$('mask').checked = mask;
+$('mask').onchange = () => { mask = $('mask').checked; store.set(STORE+':mask', mask); render(); };
+$('resetBtn').onclick = () => {
+  if($('resetBtn').dataset.sure){ people = []; save(); $('resetBtn').textContent = '명단 전체 지우기'; delete $('resetBtn').dataset.sure; say('명단을 비웠습니다.', 'ok'); }
+  else{ $('resetBtn').dataset.sure = '1'; $('resetBtn').textContent = '정말 지울까요? 한 번 더 누르면 지워집니다'; }
+};
+
+/* ===== 순위 발표: N등부터 1등까지 한 명씩 ===== */
+let step = -1, order = [];
+function showStep(){
+  const sh = $('show');
+  if(step < 0){ sh.innerHTML = '<div class="tag pop">가장 멀리서 오신 분은?</div><div class="next">화면을 누르거나 스페이스바 → ' + order.length + '등부터 공개</div>'; return; }
+  if(step >= order.length){ sh.hidden = true; return; }
+  const i = order.length - 1 - step, p = order[i];
+  sh.innerHTML = '<div class="place pop">' + (i+1) + '등</div><div class="name pop">' + esc(p.name) + '</div>' +
+    '<div class="from">' + esc(shown(p)) + ' → 부산 광안리</div><div class="dist"><span id="cnt">0</span><small>km</small></div>' +
+    '<div class="next">' + (i ? '다음: ' + i + '등' : '누르면 닫기') + '</div>';
+  const el = $('cnt'), t0 = performance.now(), dur = 1600;
+  (function tick(now){ const k = Math.min(1, (now - t0)/dur), e = 1 - Math.pow(1-k, 3);
+    el.textContent = fmt(p.d * e); if(k < 1) requestAnimationFrame(tick); })(t0);
+}
+$('showBtn').onclick = () => { order = ranked().slice(0, topN); step = -1; $('show').hidden = false; $('show').focus(); showStep(); };
+$('show').onclick = () => { step++; showStep(); };
+document.addEventListener('keydown', e => {
+  if($('show').hidden) return;
+  if(e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight'){ e.preventDefault(); step++; showStep(); }
+  if(e.key === 'Escape') $('show').hidden = true;
+});
+
+render();
+loadKakao();
+if(location.protocol === 'file:') say('⚠️ 파일을 더블클릭해서 열면 주소 검색이 안 됩니다. 폴더의 「열기.bat」으로 열어 주세요.', 'err');
+$('who').focus();
+})();
+</script>
+</body>
+</html>
